@@ -24,10 +24,25 @@ const SYSCALL_TASK_INFO: usize = 410;
 mod fs;
 mod process;
 
+use crate::config::MAX_SYSCALL_NUM;
+use crate::task::TASK_MANAGER;
 use fs::*;
 use process::*;
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
+    {
+        let current_task_index = {
+            let inner = TASK_MANAGER.inner.exclusive_access();
+            inner.current_task
+        };
+        let mut inner = TASK_MANAGER.inner.exclusive_access();
+        let current_task = &mut inner.tasks[current_task_index];
+
+        if syscall_id < MAX_SYSCALL_NUM {
+            current_task.syscall_times[syscall_id as usize] += 1;
+        }
+    }
+
     match syscall_id {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
